@@ -152,3 +152,5 @@ assets/whiteboard/<项目名>/
 - 多幕合并后顺序、时长与字幕分镜一致。
 
 如需修改效果，先在预览台（`assets/preview.html`）调整标注（区域/顺序/时序）并保存，再命令行渲染，不要凭空反复出片。
+
+支持 --theme / --canvas-hex，见 README 多色调节。

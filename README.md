@@ -167,3 +167,30 @@ srt-whiteboard-animation/
 一个爱养鱼的老登 / AI Builder / 用 AI 团队打造一人公司。
 
 抖音、B站、公众号：江哥是老登啊
+
+## 多色调纸色（本 fork）
+
+一条片只选 **一个** theme。渲染只改画布纸色 `canvas_hex`；线稿四角必须与该纸色一致，否则 `match_bg` 会按四角采样把背景染回画布色。
+
+| theme id | 纸色 canvas_hex | 说明 |
+|----------|-----------------|------|
+| `paper-cream`（**默认**） | `#F6F1E3` | 米纸暖阳 |
+| `paper-mint` | `#E8F3EE` | 薄荷清课 |
+| `paper-sky` | `#EAF2FA` | 晴空浅蓝 |
+| `paper-peach` | `#FBEDE6` | 蜜桃午后 |
+| `paper-sand` | `#F3EBD8` | 沙丘绘本 |
+| `paper-lilac` | `#F3EEF8` | 淡紫睡前 |
+
+配置：`assets/themes.json`。墨色/点缀见色板文档；笔迹墨色仍来自线稿像素。
+
+CLI 示例：
+
+    # 默认 paper-cream
+    python scripts/render_stream_whiteboard.py <image.png> <annotation.json> <out.mp4>
+
+    # 指定主题
+    python scripts/render_stream_whiteboard.py <image.png> <annotation.json> <out.mp4> --theme paper-mint
+
+    # 临时覆盖纸色（优先于 --theme）
+    python scripts/render_stream_whiteboard.py <image.png> <annotation.json> <out.mp4> --theme paper-mint --canvas-hex "#E8F3EE"
+

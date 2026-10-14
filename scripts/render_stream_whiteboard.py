@@ -34,6 +34,7 @@ import numpy as np
 _SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_SCRIPT_DIR))
 import stream_render as sr  # noqa: E402
+from theme_loader import resolve_canvas_hex  # noqa: E402
 
 DEFAULT_HAND = _SCRIPT_DIR.parent / "assets" / "drawing-hand.png"
 
@@ -473,6 +474,18 @@ def _parse_args(argv=None):
     p.add_argument("--brush-radius", type=int, default=None)
     p.add_argument("--cap-long-edge", type=int, default=None,
                    help="输出长边像素上限（预览可调小加速，默认 1080）")
+    p.add_argument(
+        "--theme",
+        default=None,
+        help="纸色主题 id（读 assets/themes.json；默认 paper-cream）",
+    )
+    p.add_argument(
+        "--canvas-hex",
+        default=None,
+        dest="canvas_hex",
+        help="直接指定画布纸色 #RRGGBB；若同时给 --theme，以本项为准",
+    )
+
     return p.parse_args(argv)
 
 
@@ -489,12 +502,20 @@ def _build_cfg(args) -> sr.Config:
     kw["ink_path_mode"] = args.ink_path
     kw["color_fill"] = args.color_fill
     kw["pause_mode"] = args.pause
+    try:
+        _tid, canvas_hex = resolve_canvas_hex(args.theme, args.canvas_hex)
+    except ValueError as e:
+        raise SystemExit(f"[err] {e}") from e
+    kw["canvas_hex"] = canvas_hex
     return sr.Config(**kw)
+
+
 
 
 def main(argv=None) -> int:
     args = _parse_args(argv)
     cfg = _build_cfg(args)
+    print(f"  theme/canvas: {args.theme or '(default)'} → {cfg.canvas_hex}")
 
     print("=" * 56)
     print("SRT 白板动画整合渲染器 (mask 编排 + stream 画法)")
