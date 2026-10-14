@@ -130,10 +130,11 @@ assets/whiteboard/<项目名>/
 4. **预览台（无需服务器）**：直接用 Chrome / Edge 打开 `assets/preview.html`，点"打开文件夹"选目录 → 载入全部图片+同名标注 → 拖拽编辑 → "保存"写回原文件。写回需 File System Access API（Chrome/Edge）；其它浏览器改为下载后手动覆盖。渲染仍走命令行（下面第 5 步）。
 5. **渲染单幕成片**：
    ```bash
-   <ENV_PY> scripts/render_stream_whiteboard.py <图片> <标注> <输出mp4> assets/drawing-hand.png \
-       [--ink-path grid|skeleton] [--color-fill contour-wipe|brush] [--total-ms <毫秒>]
+   <ENV_PY> scripts/render_stream_whiteboard.py <图片> <标注> <输出mp4> [手部PNG] \
+       [--ink-path grid|skeleton] [--color-fill contour-wipe|brush] [--total-ms <毫秒>] [--bare-tip]
    ```
-   `--total-ms` 缺省时用标注里的 `sceneDurationMs`。末行输出 `OUTPUT=<路径>`。
+   `--total-ms` 缺省时用标注里的 `sceneDurationMs`。末行输出 `OUTPUT=<路径>`。  
+   第 4 参数可指定自定义笔/手 PNG（默认 `assets/drawing-hand.png`）；笔杆文字是图内像素，换文案需换图。详见 README「自定义笔 / 手部素材」。
 6. **多幕合并**：
    ```bash
    <ENV_PY> scripts/merge_scenes.py --inputs 幕1.mp4 幕2.mp4 幕3.mp4 --output final.mp4

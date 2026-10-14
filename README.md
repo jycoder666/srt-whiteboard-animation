@@ -121,6 +121,26 @@ python scripts/render_annotation_preview.py <图片路径> <标注路径> <预�
   --ink-path grid --color-fill contour-wipe
 ```
 
+### 自定义笔 / 手部素材
+
+视频里的笔与笔杆文字（如默认图上的标识）来自 PNG 像素，**不是**运行时叠字，不能单独改文案。可整张替换：
+
+- **第 4 个参数**：手部/笔尖 PNG 路径（可省略，默认 `assets/drawing-hand.png`）
+- **`--bare-tip`**：不叠加手/笔，只画笔迹
+- 单图入口也可用 `--pen-image <路径>`
+
+你后面做好新笔图后，直接指定即可，例如：
+
+```bash
+# 使用你自己的笔图（建议透明底 PNG；笔尖放在图的左上角，与默认锚点一致）
+<ENV_PY> scripts/render_stream_whiteboard.py <图片路径> <标注路径> <输出.mp4> path/to/my-pen.png
+
+# 不要手部覆盖
+<ENV_PY> scripts/render_stream_whiteboard.py <图片路径> <标注路径> <输出.mp4> --bare-tip
+```
+
+也可覆盖仓库默认文件 `assets/drawing-hand.png`，之后不传第 4 参数即用新默认。
+
 合并多幕：
 
 ```bash
