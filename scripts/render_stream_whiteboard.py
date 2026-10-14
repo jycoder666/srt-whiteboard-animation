@@ -164,7 +164,7 @@ class RegionStreamRenderer:
         return sr.flatten_streams(streams)
 
     def _region_skeleton_strokes(self, allowed: np.ndarray) -> list[list[tuple[int, int]]]:
-        """骨架模式：区域内墨迹细化 + 8 邻接追踪 + 重采样平滑。"""
+        """骨架模式：区域内墨迹细化 + 8 邻接追踪 + 与主渲染器同一后处理。"""
         cfg = self.cfg
         region_ink = self.ink_pixels & allowed
         if not region_ink.any():
@@ -173,16 +173,7 @@ class RegionStreamRenderer:
         raw = sr.trace_8connected(skel, min_points=cfg.skeleton_min_points)
         if not raw:
             return []
-        spacing = cfg.skeleton_resample_spacing
-        out: list[list[tuple[int, int]]] = []
-        for stroke in raw:
-            pts = [(float(x), float(y)) for x, y in stroke]
-            pts = sr._resample_stroke_points(pts, spacing)
-            pts = sr._chaikin_smooth(pts, iterations=1)
-            pts = sr._resample_stroke_points(pts, spacing)
-            if len(pts) >= 2 and sr._stroke_cumulative_length(pts)[-1] > 2.0:
-                out.append([(int(round(x)), int(round(y))) for x, y in pts])
-        return sr._order_skeleton_strokes(out)
+        return sr._finalize_skeleton_strokes(raw, cfg.skeleton_resample_spacing)
 
     # ── 落墨（限制在 allowed 内）──
     def _reveal_ink_segment(self, a: tuple[int, int], b: tuple[int, int], allowed: np.ndarray) -> None:

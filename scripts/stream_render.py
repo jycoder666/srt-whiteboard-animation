@@ -501,9 +501,12 @@ def _order_stream_by_kind(
 def _chain_region_paths(
     groups: list[tuple[str, list[tuple[int, int]]]],
 ) -> list[tuple[int, int]]:
-    """Finish every component in one visual region before leaving it."""
-    paths = [_order_stream_by_kind(kind, cells) for kind, cells in groups]
-    remaining = [path for path in paths if path]
+    """同一视觉区域内的连通分量画完再离开；文字分量禁止为减跳笔而反向。"""
+    remaining = [
+        (kind, path)
+        for kind, cells in groups
+        if (path := _order_stream_by_kind(kind, cells))
+    ]
     ordered: list[tuple[int, int]] = []
     tail: tuple[int, int] | None = None
     while remaining:
@@ -513,18 +516,19 @@ def _chain_region_paths(
             pick_index = min(
                 range(len(remaining)),
                 key=lambda index: min(
-                    (remaining[index][0][0] - tail[0]) ** 2
-                    + (remaining[index][0][1] - tail[1]) ** 2,
-                    (remaining[index][-1][0] - tail[0]) ** 2
-                    + (remaining[index][-1][1] - tail[1]) ** 2,
+                    (remaining[index][1][0][0] - tail[0]) ** 2
+                    + (remaining[index][1][0][1] - tail[1]) ** 2,
+                    (remaining[index][1][-1][0] - tail[0]) ** 2
+                    + (remaining[index][1][-1][1] - tail[1]) ** 2,
                 ),
             )
-        path = remaining.pop(pick_index)
-        if tail is not None and len(path) > 1:
+        kind, path = remaining.pop(pick_index)
+        # 文字流保持书写方向，不为减跳笔而整体反向
+        if kind != "text" and tail is not None and len(path) > 1:
             head_distance = (path[0][0] - tail[0]) ** 2 + (path[0][1] - tail[1]) ** 2
             end_distance = (path[-1][0] - tail[0]) ** 2 + (path[-1][1] - tail[1]) ** 2
             if end_distance < head_distance:
-                path.reverse()
+                path = list(reversed(path))
         ordered.extend(path)
         tail = path[-1]
     return ordered
@@ -535,6 +539,7 @@ def cluster_ink_streams(active: np.ndarray) -> list[list[tuple[int, int]]]:
     把墨迹格按语义聚成若干条墨流：主体(subject) → 文字(text) → 局部轮廓(contour)，
     每条内部按类型选画法（文字按段扫、其余密度游走）；
     墨流之间按“出口到入口最近邻”动态串联，必要时整条反向，减少跳笔。
+    含文字的墨流不做整段反向，避免书写方向被打乱。
     返回的是已串联排序好的多条笔迹流。
     """
     if not active.any():
@@ -544,8 +549,13 @@ def cluster_ink_streams(active: np.ndarray) -> list[list[tuple[int, int]]]:
     # component.  Thus a label's border, its characters, and its arrow cannot
     # be interrupted by a different object that happens to be closer.
     regions = _group_adjacent_stroke_groups(groups)
-    streams = [_chain_region_paths(region) for region in regions]
-    streams = [s for s in streams if s]
+    streams: list[tuple[list[tuple[int, int]], bool]] = []
+    for region in regions:
+        path = _chain_region_paths(region)
+        if not path:
+            continue
+        allow_reverse = all(kind != "text" for kind, _ in region)
+        streams.append((path, allow_reverse))
     if not streams:
         return []
 
@@ -558,13 +568,13 @@ def cluster_ink_streams(active: np.ndarray) -> list[list[tuple[int, int]]]:
         if tail is None:
             pick_idx = 0  # classify 已把主体排在最前
         else:
-            def dist_to_tail(stream: list[tuple[int, int]]) -> int:
-                head = stream[0]
+            def dist_to_tail(item: tuple[list[tuple[int, int]], bool]) -> int:
+                head = item[0][0]
                 return (head[0] - tail[0]) ** 2 + (head[1] - tail[1]) ** 2
             pick_idx = min(range(len(remaining)), key=lambda i: dist_to_tail(remaining[i]))
-        pick = remaining.pop(pick_idx)
-        # 视情况反向：若尾离 pick 的终点比离起点更近，则反向
-        if tail is not None and len(pick) > 1:
+        pick, allow_reverse = remaining.pop(pick_idx)
+        # 视情况反向：若尾离 pick 的终点比离起点更近，则反向（文字流除外）
+        if allow_reverse and tail is not None and len(pick) > 1:
             head = pick[0]
             end = pick[-1]
             d_end = (end[0] - tail[0]) ** 2 + (end[1] - tail[1]) ** 2
@@ -943,19 +953,60 @@ def _chaikin_smooth(
     return pts
 
 
+def _normalize_stroke_direction(
+    points: list[tuple[float, float]],
+) -> list[tuple[float, float]]:
+    """
+    单笔书写方向归一化：竖向主导则上→下，横向主导则左→右。
+    骨架追踪起点任意，不做此步会出现倒写。
+    """
+    if len(points) < 2:
+        return list(points)
+    sx, sy = points[0]
+    ex, ey = points[-1]
+    dx = ex - sx
+    dy = ey - sy
+    if abs(dy) >= abs(dx):
+        if sy > ey:
+            return list(reversed(points))
+    else:
+        if sx > ex:
+            return list(reversed(points))
+    return list(points)
+
+
 def _order_skeleton_strokes(strokes: list[list[tuple[float, float]]]) -> list[list[tuple[float, float]]]:
     """
-    笔画排序：从上到下、从左到右，长笔优先。
-    简化版①order_strokes——用包围盒左上角 + 负长度做字典序。
+    笔画排序：从上到下、从左到右（用起点；近似书写阅读序）。
+    不再长笔优先，避免左右部件被长竖画抢先。
     """
     def sort_key(s):
         if not s:
-            return (0, 0, 0, 0)
-        xs = [p[0] for p in s]
-        ys = [p[1] for p in s]
-        length = _stroke_cumulative_length(s)[-1]
-        return (min(ys) // 12, min(xs), min(ys), -length)
+            return (0.0, 0.0, 0.0)
+        sx, sy = s[0]
+        return (sy // 12, sx, sy)
     return sorted(strokes, key=sort_key)
+
+
+def _finalize_skeleton_strokes(
+    raw_strokes: list[list[tuple[int, int]]],
+    spacing: float,
+) -> list[list[tuple[int, int]]]:
+    """
+    骨架笔画后处理：重采样 → 平滑 → 方向归一化 → 上下左右排序。
+    StreamRenderer 与区域渲染共用，避免两边行为不一致。
+    """
+    processed: list[list[tuple[float, float]]] = []
+    for stroke in raw_strokes:
+        pts = [(float(x), float(y)) for x, y in stroke]
+        pts = _resample_stroke_points(pts, spacing)
+        pts = _chaikin_smooth(pts, iterations=1)
+        pts = _resample_stroke_points(pts, spacing)
+        if len(pts) >= 2 and _stroke_cumulative_length(pts)[-1] > 2.0:
+            pts = _normalize_stroke_direction(pts)
+            processed.append(pts)
+    processed = _order_skeleton_strokes(processed)
+    return [[(int(round(x)), int(round(y))) for x, y in s] for s in processed]
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1108,17 +1159,7 @@ class StreamBoardRenderer:
             print("  [warn] 骨架追踪无笔画，回退到格中心路径")
             return []
 
-        spacing = cfg.skeleton_resample_spacing
-        processed: list[list[tuple[int, int]]] = []
-        for stroke in raw_strokes:
-            pts = [(float(x), float(y)) for x, y in stroke]
-            pts = _resample_stroke_points(pts, spacing)
-            pts = _chaikin_smooth(pts, iterations=1)
-            pts = _resample_stroke_points(pts, spacing)
-            if len(pts) >= 2 and _stroke_cumulative_length(pts)[-1] > 2.0:
-                processed.append([(int(round(x)), int(round(y))) for x, y in pts])
-
-        processed = _order_skeleton_strokes(processed)
+        processed = _finalize_skeleton_strokes(raw_strokes, cfg.skeleton_resample_spacing)
         total_pts = sum(len(s) for s in processed)
         print(f"  骨架追踪: {len(processed)} 条笔画, {total_pts} 个采样点")
         return processed

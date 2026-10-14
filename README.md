@@ -136,6 +136,23 @@ python scripts/render_annotation_preview.py <图片路径> <标注路径> <预�
 - 笔尖贴近当前流式笔迹；线稿清晰时可选择 `--ink-path skeleton`
 - 每幕结束后至少停留 0.5 秒完整画面；多幕合并顺序与字幕分镜一致
 
+## 汉字书写顺序
+
+当前笔迹顺序来自线稿像素的几何启发式（骨架追踪 + 上→下 / 左→右方向归一化），**不是**教材级汉字笔画顺序。PNG 本身不含笔画语义，无法从骨架可靠还原「木→又→寸」这类顺序。
+
+**后期方案（尚未实现）**：汉字文字区走笔画库旁路，插画仍用现有 `skeleton` / `grid`：
+
+1. 笔画数据源：Make Me a Hanzi / Hanzi Writer 同源数据（每字按顺序的笔画 path）
+2. 标注约定：文字元素增加 `type: "hanzi"` + `text: "树"`（或多字 `text`）
+3. 渲染：汉字走笔画库路径；插画仍用 skeleton/grid
+4. 落笔：文字最好直接按笔画矢量落笔（或线稿用同字形生成再仿射对齐）
+
+不推荐对手绘 PNG 做 OCR 再硬对齐笔画。验证几何方向可用：
+
+```bash
+<ENV_PY> scripts/verify_stroke_order.py
+```
+
 ## 仓库内容
 
 ```text
@@ -149,6 +166,7 @@ srt-whiteboard-animation/
 │   ├── parse_srt.py                  # 字幕解析与分镜建议
 │   ├── render_annotation_preview.py  # 标注检查图
 │   ├── render_stream_whiteboard.py   # 流式笔迹 MP4 渲染器
+│   ├── verify_stroke_order.py        # 骨架笔画方向验证（树字样）
 │   ├── merge_scenes.py               # 多幕合并
 │   └── prepare_env.py                # 依赖环境准备
 └── agents/openai.yaml                # Codex 元数据
