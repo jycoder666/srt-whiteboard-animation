@@ -1,0 +1,41 @@
+{
+  "default": "paper-cream",
+  "themes": {
+    "paper-cream": {
+      "name": "米纸暖阳",
+      "canvas_hex": "#F6F1E3",
+      "ink": "#2C2416",
+      "accent": "#C4A574"
+    },
+    "paper-mint": {
+      "name": "薄荷清课",
+      "canvas_hex": "#E8F3EE",
+      "ink": "#1F2E28",
+      "accent": "#6FAE9A"
+    },
+    "paper-sky": {
+      "name": "晴空浅蓝",
+      "canvas_hex": "#EAF2FA",
+      "ink": "#1A2433",
+      "accent": "#6B9DC2"
+    },
+    "paper-peach": {
+      "name": "蜜桃午后",
+      "canvas_hex": "#FBEDE6",
+      "ink": "#3A2520",
+      "accent": "#E8A090"
+    },
+    "paper-sand": {
+      "name": "沙丘绘本",
+      "canvas_hex": "#F3EBD8",
+      "ink": "#2B2618",
+      "accent": "#B8925A"
+    },
+    "paper-lilac": {
+      "name": "淡紫睡前",
+      "canvas_hex": "#F3EEF8",
+      "ink": "#2A2433",
+      "accent": "#A894C4"
+    }
+  }
+}
